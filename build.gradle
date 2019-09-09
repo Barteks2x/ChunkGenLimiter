@@ -1,0 +1,83 @@
+buildscript {
+    repositories {
+        jcenter()
+        maven { url = "https://files.minecraftforge.net/maven" }
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
+    }
+}
+apply plugin: 'net.minecraftforge.gradle.forge'
+//Only edit below this line, the above code adds and enables the necessary things for Forge to be setup.
+
+
+version = "1.0"
+group = "io.github.barteks2x.chunkgenlimiter" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
+archivesBaseName = "chunkgenlimiter"
+
+sourceCompatibility = targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
+compileJava {
+    sourceCompatibility = targetCompatibility = '1.8'
+}
+
+minecraft {
+    version = "1.12.2-14.23.5.2846"
+    runDir = "run"
+    mappings = "snapshot_20171003"
+}
+
+dependencies {
+}
+
+processResources {
+    // this will ensure that this task is redone when the versions change.
+    inputs.property "version", project.version
+    inputs.property "mcversion", project.minecraft.version
+
+    // replace stuff in mcmod.info, nothing else
+    from(sourceSets.main.resources.srcDirs) {
+        include 'mcmod.info'
+                
+        // replace version and mcversion
+        expand 'version':project.version, 'mcversion':project.minecraft.version
+    }
+        
+    // copy everything else except the mcmod.info
+    from(sourceSets.main.resources.srcDirs) {
+        exclude 'mcmod.info'
+    }
+}
+
+task coreJar(type: Jar) {
+    from(sourceSets.main.output) {
+        include 'io/github/barteks2x/chunkgenlimiter/coremod/**'
+    }
+    // Standard coremod manifest definitions
+    manifest {
+        // Added benefit of separating mod and coremod: No need for FMLCorePluginContainsFMLMod
+        attributes 'FMLCorePlugin': "io.github.barteks2x.chunkgenlimiter.coremod.ChunkGenLimiterCoremod"
+        // Strictly speaking not required (right now)
+        // Allows Forge to extract the dependency to a local repository (Given that the corresponding PR is merged)
+        // If another mod ships the same dependency, it doesn't have to be extracted twice
+        attributes 'Maven-Version': "${project.group}:${project.archivesBaseName}:${project.version}:core"
+    }
+    // Add a classifier to the JAR ('-mod' at the end of the file name)
+    // Distinguishes the mod JAR from the shipped one
+    classifier 'core'
+}
+
+reobf {
+    coreJar { mappingType = 'SEARGE' }
+}
+
+// Use the standard JAR task as container for the main jar and the contained dependency (the coremod)
+jar {
+    exclude 'io/github/barteks2x/chunkgenlimiter/coremod/**'
+    from(coreJar.archivePath.absolutePath) {
+        include '*'
+    }
+    manifest {
+        attributes 'ContainedDeps': coreJar.archivePath.name
+    }
+    dependsOn reobfCoreJar
+}
